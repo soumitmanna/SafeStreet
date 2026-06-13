@@ -239,7 +239,43 @@ class _ContactsScreenState extends State<ContactsScreen> {
                 'initials': _getInitials((data['name'] ?? '').toString()),
               };
 
-              return _buildContactCard(theme, contact, index);
+              return Dismissible(
+                key: Key(docs[index].id),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  color: Colors.red,
+                  child: const Icon(Icons.delete, color: Colors.white),
+                ),
+                confirmDismiss: (direction) async {
+                  if (direction != DismissDirection.endToStart) return false;
+
+                  return await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Delete Contact?'),
+                      content: const Text(
+                        'Are you sure you want to delete this emergency contact?',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(false),
+                          child: const Text('Cancel'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(true),
+                          child: const Text('Delete'),
+                        ),
+                      ],
+                    ),
+                  ) ?? false;
+                },
+                onDismissed: (direction) async {
+                  await ContactService().deleteContact(docs[index].id);
+                },
+                child: _buildContactCard(theme, contact, index),
+              );
             },
           ),
         );
