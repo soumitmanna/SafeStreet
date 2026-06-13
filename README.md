@@ -1,17 +1,75 @@
-# mobile_app
+# 🛡️ SafeStreet
 
-A new Flutter project.
+An AI-powered Women Safety Application built using Flutter and Firebase.
 
-## Getting Started
+## ✨ Features
 
-This project is a starting point for a Flutter application.
+- 🔐 Firebase Authentication (Email & Password)
+- 🚨 One-tap SOS Emergency Screen
+- 📍 Live Location Module
+- 👥 Emergency Contacts
+- 📷 Camera Module
+- 🔔 Alerts Dashboard
+- 👤 User Profile
+- ☁️ Cloud Firestore Backend
+- 🤖 AI-ready Architecture for Future Integration
 
-A few resources to get you started if this is your first Flutter project:
+---
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## 🛠 Tech Stack
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### Frontend
+- Flutter
+- Dart
+- Material Design 3
+
+### Backend
+- Firebase Authentication
+- Cloud Firestore
+- Firebase Core
+
+### Version Control
+- Git
+- GitHub
+
+---
+
+## 📂 Project Structure
+
+```
+lib/
+│
+├── screens/
+├── services/
+├── models/
+├── widgets/
+├── theme/
+└── main.dart
+```
+
+---
+
+## 🚀 Current Progress
+
+- [x] UI Development
+- [x] Navigation
+- [x] Firebase Setup
+- [x] Authentication
+- [x] Firestore Integration
+- [ ] Live Location
+- [ ] Emergency Contacts Database
+- [ ] Camera Upload
+- [ ] Push Notifications
+- [ ] AI Threat Detection
+
+---
+
+## 👨‍💻 Developer
+
+**Soumit Manna**
+
+Computer Science & Engineering (AI)
+
+Summer Internship Project
+
+2026
