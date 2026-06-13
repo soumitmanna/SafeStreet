@@ -12,6 +12,118 @@ class ContactsScreen extends StatefulWidget {
 
 class _ContactsScreenState extends State<ContactsScreen> {
   final ContactService _contactService = ContactService();
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _relationController = TextEditingController();
+
+  Future<void> _saveContact() async {
+    final name = _nameController.text.trim();
+    final phone = _phoneController.text.trim();
+    final relation = _relationController.text.trim();
+
+    if (name.isEmpty || phone.isEmpty || relation.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill all fields')),
+      );
+      return;
+    }
+
+    await ContactService().addContact(
+      name: name,
+      phone: phone,
+      relation: relation,
+    );
+
+    if (!mounted) return;
+
+    Navigator.of(context).pop();
+  }
+
+  void _showAddContactSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 24,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Add Emergency Contact',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: _nameController,
+                decoration: InputDecoration(
+                  hintText: 'Name',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _phoneController,
+                decoration: InputDecoration(
+                  hintText: 'Phone',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _relationController,
+                decoration: InputDecoration(
+                  hintText: 'Relation',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _saveContact,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  child: const Text('Save'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    _relationController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -220,7 +332,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
 
   Widget _buildAddContactButton() {
     return ElevatedButton.icon(
-      onPressed: () {},
+      onPressed: _showAddContactSheet,
       icon: const Icon(Icons.person_add_rounded),
       label: const Text('Add Contact'),
       style: ElevatedButton.styleFrom(
