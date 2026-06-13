@@ -1,4 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+
+import '../services/contact_service.dart';
 
 class ContactsScreen extends StatefulWidget {
   const ContactsScreen({super.key});
@@ -8,38 +11,7 @@ class ContactsScreen extends StatefulWidget {
 }
 
 class _ContactsScreenState extends State<ContactsScreen> {
-  final List<Map<String, String>> _contacts = [
-    {
-      'name': 'Ariana Patel',
-      'role': 'Family',
-      'phone': '+1 555 283 910',
-      'initials': 'AP',
-    },
-    {
-      'name': 'Noah Chen',
-      'role': 'Friend',
-      'phone': '+1 555 721 844',
-      'initials': 'NC',
-    },
-    {
-      'name': 'Ethan Reid',
-      'role': 'Safety Team',
-      'phone': '+1 555 110 332',
-      'initials': 'ER',
-    },
-    {
-      'name': 'Sofia Martinez',
-      'role': 'Family',
-      'phone': '+1 555 445 667',
-      'initials': 'SM',
-    },
-    {
-      'name': 'James Wilson',
-      'role': 'Emergency',
-      'phone': '+1 555 998 221',
-      'initials': 'JW',
-    },
-  ];
+  final ContactService _contactService = ContactService();
 
   @override
   Widget build(BuildContext context) {
@@ -86,25 +58,89 @@ class _ContactsScreenState extends State<ContactsScreen> {
   }
 
   Widget _buildContactsList(ThemeData theme) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFFAFAFA),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: Colors.black12),
-      ),
-      child: ListView.separated(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: _contacts.length,
-        separatorBuilder: (context, index) => const Divider(
-          height: 1,
-          indent: 70,
-          endIndent: 16,
-          color: Color(0xFFE5E7EB),
-        ),
-        itemBuilder: (context, index) => _buildContactCard(theme, _contacts[index], index),
-      ),
+    return StreamBuilder<QuerySnapshot>(
+      stream: _contactService.getContacts(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const Center(
+            child: Text('Something went wrong while loading contacts.'),
+          );
+        }
+
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final docs = snapshot.data!.docs;
+
+        if (docs.isEmpty) {
+          return Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFFFAFAFA),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: Colors.black12),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 40),
+            child: const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.person_off_rounded, size: 48, color: Colors.black45),
+                  SizedBox(height: 12),
+                  Text(
+                    'No Emergency Contacts Yet',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.black87,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFFAFAFA),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: Colors.black12),
+          ),
+          child: ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: docs.length,
+            separatorBuilder: (context, index) => const Divider(
+              height: 1,
+              indent: 70,
+              endIndent: 16,
+              color: Color(0xFFE5E7EB),
+            ),
+            itemBuilder: (context, index) {
+              final data = docs[index].data() as Map<String, dynamic>;
+              final contact = {
+                'name': (data['name'] ?? '').toString(),
+                'relation': (data['relation'] ?? '').toString(),
+                'phone': (data['phone'] ?? '').toString(),
+                'initials': _getInitials((data['name'] ?? '').toString()),
+              };
+
+              return _buildContactCard(theme, contact, index);
+            },
+          ),
+        );
+      },
     );
+  }
+
+  String _getInitials(String name) {
+    final words = name.trim().split(RegExp(r'\s+'));
+    if (words.length >= 2) {
+      return '${words[0][0]}${words[1][0]}'.toUpperCase();
+    }
+    return name.isNotEmpty ? name[0].toUpperCase() : '?';
   }
 
   Widget _buildContactCard(ThemeData theme, Map<String, String> contact, int index) {
@@ -146,7 +182,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
         overflow: TextOverflow.ellipsis,
       ),
       subtitle: Text(
-        '${contact['role']} • ${contact['phone']}',
+        '${contact['relation']} • ${contact['phone']}',
         style: const TextStyle(color: Colors.black54, fontSize: 13),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
