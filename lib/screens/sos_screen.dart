@@ -1,4 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+
+import '../services/alert_service.dart';
+import '../services/location_service.dart';
+import 'assist_screen.dart';
 
 class SosScreen extends StatefulWidget {
   const SosScreen({super.key});
@@ -12,11 +18,80 @@ class _SosScreenState extends State<SosScreen> {
   String _status = 'Ready to help';
   String _location = '23.7808875, 90.2792371';
 
-  void _toggleEmergency() {
-    setState(() {
-      _emergencyActive = !_emergencyActive;
-      _status = _emergencyActive ? 'Emergency Active' : 'Ready to help';
-    });
+  Future<void> _confirmEmergency() async {
+    final shouldActivate = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Confirm Emergency'),
+          content: const Text(
+            'Emergency mode will activate in 3 seconds.\nDo you want to continue?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Activate'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!mounted) return;
+
+    if (shouldActivate == true) {
+      await _activateEmergency();
+    }
+  }
+
+  Future<void> _activateEmergency() async {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return const Center(
+          child: CircularProgressIndicator(),
+        );
+      },
+    );
+
+    try {
+      final alertId = await AlertService().createAlert();
+
+      final Position position = await LocationService().getCurrentLocation();
+
+      await FirebaseFirestore.instance.collection('alerts').doc(alertId).update({
+        'latitude': position.latitude,
+        'longitude': position.longitude,
+        'location': 'Location Shared',
+      });
+
+      if (!mounted) return;
+
+      setState(() {
+        _emergencyActive = true;
+        _status = 'Emergency Active';
+        _location = '${position.latitude}, ${position.longitude}';
+      });
+
+      Navigator.of(context).pop();
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => AssistScreen(alertId: alertId),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
+    }
   }
 
   @override
@@ -119,7 +194,7 @@ class _SosScreenState extends State<SosScreen> {
           width: 220,
           height: 220,
           child: ElevatedButton(
-            onPressed: _toggleEmergency,
+            onPressed: _confirmEmergency,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFDC2626),
               shape: const CircleBorder(),
