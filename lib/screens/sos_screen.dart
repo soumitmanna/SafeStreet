@@ -1,9 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 
-import '../services/alert_service.dart';
-import '../services/location_service.dart';
+import '../services/sos_service.dart';
 import 'assist_screen.dart';
 
 class SosScreen extends StatefulWidget {
@@ -14,9 +11,13 @@ class SosScreen extends StatefulWidget {
 }
 
 class _SosScreenState extends State<SosScreen> {
+  final SosService _sosService = SosService();
+
   bool _emergencyActive = false;
+  bool _isSending = false;
+  bool _alertCreated = false;
   String _status = 'Ready to help';
-  String _location = '23.7808875, 90.2792371';
+  String _location = 'Waiting for SOS activation';
 
   Future<void> _confirmEmergency() async {
     final shouldActivate = await showDialog<bool>(
@@ -49,47 +50,70 @@ class _SosScreenState extends State<SosScreen> {
   }
 
   Future<void> _activateEmergency() async {
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return const Center(
-          child: CircularProgressIndicator(),
-        );
-      },
-    );
+    setState(() {
+      _isSending = true;
+      _alertCreated = false;
+      _status = 'Sending SOS alert...';
+    });
 
     try {
-      final alertId = await AlertService().createAlert();
-
-      final Position position = await LocationService().getCurrentLocation();
-
-      await FirebaseFirestore.instance.collection('alerts').doc(alertId).update({
-        'latitude': position.latitude,
-        'longitude': position.longitude,
-        'location': 'Location Shared',
-      });
+      final result = await _sosService.createActiveAlert();
 
       if (!mounted) return;
 
       setState(() {
+        _isSending = false;
         _emergencyActive = true;
+        _alertCreated = true;
         _status = 'Emergency Active';
-        _location = '${position.latitude}, ${position.longitude}';
+        _location = result.location;
       });
 
-      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('SOS alert created successfully.'),
+          backgroundColor: Color(0xFF16A34A),
+        ),
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
+
+      if (!mounted) return;
+
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => AssistScreen(alertId: alertId),
+          builder: (context) => AssistScreen(alertId: result.alertId),
+        ),
+      );
+    } on SosException catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _isSending = false;
+        _alertCreated = false;
+        _status = 'Ready to help';
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          backgroundColor: const Color(0xFFDC2626),
         ),
       );
     } catch (error) {
       if (!mounted) return;
 
-      Navigator.of(context).pop();
+      setState(() {
+        _isSending = false;
+        _alertCreated = false;
+        _status = 'Ready to help';
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString())),
+        SnackBar(
+          content: Text('SOS failed: $error'),
+          backgroundColor: const Color(0xFFDC2626),
+        ),
       );
     }
   }
@@ -119,6 +143,8 @@ class _SosScreenState extends State<SosScreen> {
                     _buildHeader(theme),
                     const SizedBox(height: 24),
                     if (isWide) _buildWideLayout(theme) else _buildNarrowLayout(theme),
+                    const SizedBox(height: 18),
+                    _buildAlertCreatedBanner(theme),
                     const SizedBox(height: 24),
                     _buildLiveLocationCard(theme),
                     const SizedBox(height: 18),
@@ -194,9 +220,10 @@ class _SosScreenState extends State<SosScreen> {
           width: 220,
           height: 220,
           child: ElevatedButton(
-            onPressed: _confirmEmergency,
+            onPressed: _isSending ? null : _confirmEmergency,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFDC2626),
+              backgroundColor: _isSending ? const Color(0xFF991B1B) : const Color(0xFFDC2626),
+              disabledBackgroundColor: const Color(0xFF991B1B),
               shape: const CircleBorder(),
               elevation: 8,
               shadowColor: Colors.redAccent.withOpacity(0.35),
@@ -204,19 +231,91 @@ class _SosScreenState extends State<SosScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  'SOS',
-                  style: theme.textTheme.displayMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
+                if (_isSending)
+                  const SizedBox(
+                    width: 46,
+                    height: 46,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 5,
+                    ),
+                  )
+                else
+                  Text(
+                    'SOS',
+                    style: theme.textTheme.displayMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
-                ),
                 const SizedBox(height: 8),
                 Text(
-                  _emergencyActive ? 'Cancel' : 'Tap to send alert',
+                  _isSending
+                      ? 'Sharing location'
+                      : _emergencyActive
+                          ? 'Alert active'
+                          : 'Tap to send alert',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: Colors.white70,
                     fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAlertCreatedBanner(ThemeData theme) {
+    return AnimatedOpacity(
+      opacity: _alertCreated ? 1 : 0,
+      duration: const Duration(milliseconds: 260),
+      child: AnimatedScale(
+        scale: _alertCreated ? 1 : 0.96,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutBack,
+        child: IgnorePointer(
+          ignoring: !_alertCreated,
+          child: Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: const Color(0xFFECFDF3),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: const Color(0xFFBBF7D0)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF16A34A),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check_rounded, color: Colors.white),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Alert Created',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: const Color(0xFF14532D),
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Your live location was saved to Firestore.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: const Color(0xFF166534),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -267,9 +366,16 @@ class _SosScreenState extends State<SosScreen> {
             style: theme.textTheme.bodyMedium?.copyWith(color: Colors.black54, height: 1.5),
           ),
           const SizedBox(height: 22),
-          _buildStatusDetail('Alerts sent', '5 contacts notified'),
+          _buildStatusDetail('Firestore alert', _emergencyActive ? 'Created' : 'Not sent'),
           const SizedBox(height: 14),
-          _buildStatusDetail('Response status', _emergencyActive ? 'Awaiting confirmation' : 'Ready to activate'),
+          _buildStatusDetail(
+            'Response status',
+            _isSending
+                ? 'Getting location'
+                : _emergencyActive
+                    ? 'Awaiting confirmation'
+                    : 'Ready to activate',
+          ),
           const SizedBox(height: 14),
           _buildStatusDetail('Last update', 'Just now'),
         ],

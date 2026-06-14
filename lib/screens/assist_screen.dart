@@ -1,12 +1,52 @@
 import 'package:flutter/material.dart';
 
-class AssistScreen extends StatelessWidget {
+class LocationTrackingService {
+  const LocationTrackingService._();
+
+  static Future<void> stop() async {
+    // Placeholder for the real tracking lifecycle integration.
+  }
+}
+
+class AssistScreen extends StatefulWidget {
   const AssistScreen({
     super.key,
     required this.alertId,
   });
 
   final String alertId;
+
+  @override
+  State<AssistScreen> createState() => _AssistScreenState();
+}
+
+class _AssistScreenState extends State<AssistScreen> {
+  bool _isEnding = false;
+
+  Future<void> _endSos() async {
+    if (_isEnding) return;
+
+    setState(() => _isEnding = true);
+
+    try {
+      await LocationTrackingService.stop();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('SOS ended successfully.'),
+          backgroundColor: Color(0xFF16A34A),
+        ),
+      );
+
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } finally {
+      if (mounted) {
+        setState(() => _isEnding = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +107,7 @@ class AssistScreen extends StatelessWidget {
                   border: Border.all(color: Colors.black12),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
+                      color: Colors.black.withValues(alpha: 0.04),
                       blurRadius: 18,
                       offset: const Offset(0, 10),
                     ),
@@ -95,9 +135,7 @@ class AssistScreen extends StatelessWidget {
               ),
               const Spacer(),
               ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).popUntil((route) => route.isFirst);
-                },
+                onPressed: _isEnding ? null : _endSos,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF16A34A),
                   foregroundColor: Colors.white,
@@ -107,9 +145,9 @@ class AssistScreen extends StatelessWidget {
                   ),
                   elevation: 0,
                 ),
-                child: const Text(
-                  'Return Home',
-                  style: TextStyle(
+                child: Text(
+                  _isEnding ? 'Ending SOS...' : 'End SOS',
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
