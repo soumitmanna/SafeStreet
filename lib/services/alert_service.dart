@@ -31,4 +31,31 @@ class AlertService {
   Stream<DocumentSnapshot> getAlert(String alertId) {
     return _firestore.collection('alerts').doc(alertId).snapshots();
   }
+
+  /// Returns all active SOS alerts ordered by newest first.
+  Stream<QuerySnapshot> getActiveAlerts() {
+    return _firestore
+        .collection('alerts')
+        .where('status', isEqualTo: 'ACTIVE')
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+  }
+
+  /// Accept an SOS alert as a volunteer/helper.
+  Future<void> acceptAlert({
+    required String alertId,
+  }) async {
+    final user = _auth.currentUser;
+
+    if (user == null) {
+      throw Exception('User not logged in');
+    }
+
+    await _firestore.collection('alerts').doc(alertId).update({
+      'status': 'ACCEPTED',
+      'acceptedBy': user.uid,
+      'acceptedEmail': user.email ?? '',
+      'acceptedAt': FieldValue.serverTimestamp(),
+    });
+  }
 }

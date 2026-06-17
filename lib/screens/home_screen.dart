@@ -5,6 +5,7 @@ import 'sos_screen.dart';
 import 'camera_screen.dart';
 import 'location_screen.dart';
 import 'contacts_screen.dart';
+import 'assist_feed_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -97,20 +98,20 @@ class HomeScreen extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: _actionCard(
-                    context,
-                    Icons.location_on,
-                    "Location",
-                    () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const LocationScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                ),
+  child: _actionCard(
+    context,
+    Icons.volunteer_activism,
+    "ASSIST",
+    () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const AssistFeedScreen(),
+        ),
+      );
+    },
+  ),
+),
 
                 const SizedBox(width: 12),
 

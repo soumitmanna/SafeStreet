@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/sos_service.dart';
-import 'assist_screen.dart';
+import 'rescue_screen.dart';
 
 class SosScreen extends StatefulWidget {
   const SosScreen({super.key});
@@ -82,7 +82,7 @@ class _SosScreenState extends State<SosScreen> {
 
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => AssistScreen(alertId: result.alertId),
+          builder: (context) => RescueScreen(alertId: result.alertId),
         ),
       );
     } on SosException catch (error) {
