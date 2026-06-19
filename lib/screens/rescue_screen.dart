@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
 
 class RescueScreen extends StatefulWidget {
   final String alertId;
@@ -22,6 +23,8 @@ class _RescueScreenState extends State<RescueScreen> {
 
   Set<Marker> _markers = {};
 
+  Position? _currentPosition;
+
   static const CameraPosition _initialPosition =
       CameraPosition(
     target: LatLng(
@@ -35,6 +38,57 @@ class _RescueScreenState extends State<RescueScreen> {
   void initState() {
     super.initState();
     _listenVictimLocation();
+    _getCurrentLocation();
+  }
+
+  Future<void> _getCurrentLocation() async {
+    bool serviceEnabled =
+        await Geolocator.isLocationServiceEnabled();
+
+    if (!serviceEnabled) {
+      return;
+    }
+
+    LocationPermission permission =
+        await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission =
+          await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied ||
+        permission ==
+            LocationPermission.deniedForever) {
+      return;
+    }
+
+    final position =
+        await Geolocator.getCurrentPosition(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+      ),
+    );
+
+    _currentPosition = position;
+
+    setState(() {
+      _markers.add(
+        Marker(
+          markerId: const MarkerId("volunteer"),
+          position: LatLng(
+            position.latitude,
+            position.longitude,
+          ),
+          infoWindow: const InfoWindow(
+            title: "You",
+          ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueGreen,
+          ),
+        ),
+      );
+    });
   }
 
   void _listenVictimLocation() {
@@ -59,16 +113,39 @@ class _RescueScreenState extends State<RescueScreen> {
         (lng as num).toDouble(),
       );
 
-      setState(() {
-        _markers = {
+      final Set<Marker> updatedMarkers = {};
+
+      updatedMarkers.add(
+        Marker(
+          markerId: const MarkerId("victim"),
+          position: victimPosition,
+          infoWindow: const InfoWindow(
+            title: "Victim",
+          ),
+        ),
+      );
+
+      if (_currentPosition != null) {
+        updatedMarkers.add(
           Marker(
-            markerId: const MarkerId("victim"),
-            position: victimPosition,
+            markerId: const MarkerId("volunteer"),
+            position: LatLng(
+              _currentPosition!.latitude,
+              _currentPosition!.longitude,
+            ),
             infoWindow: const InfoWindow(
-              title: "Victim",
+              title: "You",
+            ),
+            icon:
+                BitmapDescriptor.defaultMarkerWithHue(
+              BitmapDescriptor.hueGreen,
             ),
           ),
-        };
+        );
+      }
+
+      setState(() {
+        _markers = updatedMarkers;
       });
 
       _mapController?.animateCamera(
@@ -95,14 +172,17 @@ class _RescueScreenState extends State<RescueScreen> {
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment:
+              CrossAxisAlignment.stretch,
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius:
+                  BorderRadius.circular(20),
               child: SizedBox(
                 height: 320,
                 child: GoogleMap(
-                  initialCameraPosition: _initialPosition,
+                  initialCameraPosition:
+                      _initialPosition,
                   markers: _markers,
                   myLocationEnabled: true,
                   myLocationButtonEnabled: true,
@@ -134,9 +214,11 @@ class _RescueScreenState extends State<RescueScreen> {
               height: 55,
               child: ElevatedButton.icon(
                 onPressed: () {
-                  // Navigation will be implemented in the next step.
+                  // Navigation will be implemented next.
                 },
-                icon: const Icon(Icons.navigation),
+                icon: const Icon(
+                  Icons.navigation,
+                ),
                 label: const Text(
                   "Navigate",
                   style: TextStyle(
