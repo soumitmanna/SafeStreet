@@ -1,4 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+
+import 'home_screen.dart';
 
 class LocationTrackingService {
   const LocationTrackingService._();
@@ -30,6 +33,13 @@ class _AssistScreenState extends State<AssistScreen> {
 
     try {
       await LocationTrackingService.stop();
+      await FirebaseFirestore.instance
+          .collection('alerts')
+          .doc(widget.alertId)
+          .update({
+        'status': 'RESOLVED',
+        'resolved': true,
+      });
 
       if (!mounted) return;
 
@@ -40,7 +50,19 @@ class _AssistScreenState extends State<AssistScreen> {
         ),
       );
 
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        (route) => false,
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to end SOS: $error'),
+          backgroundColor: const Color(0xFFDC2626),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _isEnding = false);

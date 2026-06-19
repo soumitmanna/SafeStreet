@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../services/assist_service.dart';
@@ -39,7 +40,15 @@ class AssistFeedScreen extends StatelessWidget {
             );
           }
 
-          final docs = snapshot.data!.docs;
+          final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+          final docs = snapshot.data!.docs.where((doc) {
+            if (!kDeveloperMode) {
+              return true;
+            }
+
+            final data = doc.data() as Map<String, dynamic>;
+            return data['userId'] == currentUserId;
+          }).toList();
 
           if (docs.isEmpty) {
             return const Center(
@@ -126,24 +135,38 @@ class AssistFeedScreen extends StatelessWidget {
                                 Colors.white,
                           ),
                           onPressed: () async {
-                            await assistService
-                                .acceptAlert(
-                                    docs[index].id);
+                            final alertId = docs[index].id;
+                            final navigator = Navigator.of(context);
 
-                            if (!context.mounted) {
-                              return;
-                            }
+                            try {
+                              if (!kDeveloperMode) {
+                                await assistService.acceptAlert(alertId);
+                              }
 
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    RescueScreen(
-                                  alertId:
-                                      docs[index].id,
+                              if (!navigator.mounted || !context.mounted) {
+                                return;
+                              }
+
+                              await navigator.push(
+                                MaterialPageRoute(
+                                  builder: (_) => RescueScreen(
+                                    alertId: alertId,
+                                  ),
                                 ),
-                              ),
-                            );
+                              );
+                            } catch (error) {
+                              if (!context.mounted) {
+                                return;
+                              }
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Could not accept alert: $error',
+                                  ),
+                                ),
+                              );
+                            }
                           },
                         ),
                       ),
