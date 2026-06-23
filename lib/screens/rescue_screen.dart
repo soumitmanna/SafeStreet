@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class RescueScreen extends StatefulWidget {
   final String alertId;
@@ -24,20 +25,18 @@ class _RescueScreenState extends State<RescueScreen> {
   Set<Marker> _markers = {};
 
   Position? _currentPosition;
+  double? _distanceInMeters;
+  String _eta = "--";
 
   static const CameraPosition _initialPosition =
       CameraPosition(
-    target: LatLng(
-      22.5726,
-      88.3639,
-    ),
+    target: LatLng(22.5726, 88.3639),
     zoom: 14,
   );
 
   @override
   void initState() {
     super.initState();
-    _listenVictimLocation();
     _getCurrentLocation();
   }
 
@@ -45,9 +44,7 @@ class _RescueScreenState extends State<RescueScreen> {
     bool serviceEnabled =
         await Geolocator.isLocationServiceEnabled();
 
-    if (!serviceEnabled) {
-      return;
-    }
+    if (!serviceEnabled) return;
 
     LocationPermission permission =
         await Geolocator.checkPermission();
@@ -58,8 +55,7 @@ class _RescueScreenState extends State<RescueScreen> {
     }
 
     if (permission == LocationPermission.denied ||
-        permission ==
-            LocationPermission.deniedForever) {
+        permission == LocationPermission.deniedForever) {
       return;
     }
 
@@ -89,6 +85,8 @@ class _RescueScreenState extends State<RescueScreen> {
         ),
       );
     });
+
+    _listenVictimLocation();
   }
 
   void _listenVictimLocation() {
@@ -113,9 +111,19 @@ class _RescueScreenState extends State<RescueScreen> {
         (lng as num).toDouble(),
       );
 
-      final Set<Marker> updatedMarkers = {};
+      final distance = Geolocator.distanceBetween(
+        _currentPosition!.latitude,
+        _currentPosition!.longitude,
+        victimPosition.latitude,
+        victimPosition.longitude,
+      );
 
-      updatedMarkers.add(
+      const double averageSpeed = 5.0;
+
+      final minutes =
+          (distance / averageSpeed / 60).ceil();
+
+      final Set<Marker> updatedMarkers = {
         Marker(
           markerId: const MarkerId("victim"),
           position: victimPosition,
@@ -123,28 +131,24 @@ class _RescueScreenState extends State<RescueScreen> {
             title: "Victim",
           ),
         ),
-      );
-
-      if (_currentPosition != null) {
-        updatedMarkers.add(
-          Marker(
-            markerId: const MarkerId("volunteer"),
-            position: LatLng(
-              _currentPosition!.latitude,
-              _currentPosition!.longitude,
-            ),
-            infoWindow: const InfoWindow(
-              title: "You",
-            ),
-            icon:
-                BitmapDescriptor.defaultMarkerWithHue(
-              BitmapDescriptor.hueGreen,
-            ),
+        Marker(
+          markerId: const MarkerId("volunteer"),
+          position: LatLng(
+            _currentPosition!.latitude,
+            _currentPosition!.longitude,
           ),
-        );
-      }
+          infoWindow: const InfoWindow(
+            title: "You",
+          ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueGreen,
+          ),
+        ),
+      };
 
       setState(() {
+        _distanceInMeters = distance;
+        _eta = "$minutes min";
         _markers = updatedMarkers;
       });
 
@@ -152,6 +156,32 @@ class _RescueScreenState extends State<RescueScreen> {
         CameraUpdate.newLatLng(victimPosition),
       );
     });
+  }
+
+  Future<void> _openNavigation() async {
+    if (_markers.isEmpty) return;
+
+    Marker? victimMarker;
+
+    try {
+      victimMarker = _markers.firstWhere(
+        (marker) => marker.markerId.value == "victim",
+      );
+    } catch (_) {
+      return;
+    }
+
+    final lat = victimMarker.position.latitude;
+    final lng = victimMarker.position.longitude;
+
+    final Uri url = Uri.parse(
+      "https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving",
+    );
+
+    await launchUrl(
+      url,
+      mode: LaunchMode.externalApplication,
+    );
   }
 
   @override
@@ -193,7 +223,9 @@ class _RescueScreenState extends State<RescueScreen> {
                 ),
               ),
             ),
+
             const SizedBox(height: 25),
+
             const Text(
               "Rescue in Progress",
               style: TextStyle(
@@ -201,24 +233,26 @@ class _RescueScreenState extends State<RescueScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
+
             const SizedBox(height: 10),
-            const Text(
-              "Live tracking is active.",
-              style: TextStyle(
+
+            Text(
+              _distanceInMeters == null
+                  ? "Live tracking is active."
+                  : "📍 Distance : ${(_distanceInMeters! / 1000).toStringAsFixed(2)} km\n⏱ ETA : $_eta",
+              style: const TextStyle(
                 color: Colors.grey,
                 fontSize: 16,
               ),
             ),
+
             const Spacer(),
+
             SizedBox(
               height: 55,
               child: ElevatedButton.icon(
-                onPressed: () {
-                  // Navigation will be implemented next.
-                },
-                icon: const Icon(
-                  Icons.navigation,
-                ),
+                onPressed: _openNavigation,
+                icon: const Icon(Icons.navigation),
                 label: const Text(
                   "Navigate",
                   style: TextStyle(
