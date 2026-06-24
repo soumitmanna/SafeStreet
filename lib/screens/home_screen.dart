@@ -6,6 +6,7 @@ import 'camera_screen.dart';
 import 'location_screen.dart';
 import 'contacts_screen.dart';
 import 'assist_feed_screen.dart';
+import 'journey_timer_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -33,7 +34,6 @@ class HomeScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
             const Text(
               "Welcome Back 👋",
               style: TextStyle(
@@ -95,23 +95,25 @@ class HomeScreen extends StatelessWidget {
 
             const SizedBox(height: 15),
 
+            // Row 1
             Row(
               children: [
                 Expanded(
-  child: _actionCard(
-    context,
-    Icons.volunteer_activism,
-    "ASSIST",
-    () {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const AssistFeedScreen(),
-        ),
-      );
-    },
-  ),
-),
+                  child: _actionCard(
+                    context,
+                    Icons.volunteer_activism,
+                    "ASSIST",
+                    () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const AssistFeedScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                ),
 
                 const SizedBox(width: 12),
 
@@ -124,7 +126,8 @@ class HomeScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const ContactsScreen(),
+                          builder: (_) =>
+                              const ContactsScreen(),
                         ),
                       );
                     },
@@ -135,6 +138,7 @@ class HomeScreen extends StatelessWidget {
 
             const SizedBox(height: 15),
 
+            // Row 2
             Row(
               children: [
                 Expanded(
@@ -146,7 +150,8 @@ class HomeScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const AlertsScreen(),
+                          builder: (_) =>
+                              const AlertsScreen(),
                         ),
                       );
                     },
@@ -158,13 +163,57 @@ class HomeScreen extends StatelessWidget {
                 Expanded(
                   child: _actionCard(
                     context,
+                    Icons.timer,
+                    "Journey",
+                    () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const JourneyTimerScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 15),
+
+            // Row 3
+            Row(
+              children: [
+                Expanded(
+                  child: _actionCard(
+                    context,
                     Icons.camera_alt,
                     "Camera",
                     () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const CameraScreen(),
+                          builder: (_) =>
+                              const CameraScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
+                const SizedBox(width: 12),
+
+                Expanded(
+                  child: _actionCard(
+                    context,
+                    Icons.location_on,
+                    "Location",
+                    () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const LocationScreen(),
                         ),
                       );
                     },
@@ -268,7 +317,7 @@ class HomeScreen extends StatelessWidget {
             Icon(
               icon,
               size: 35,
-              color: Color(0xFF2563EB),
+              color: const Color(0xFF2563EB),
             ),
 
             const SizedBox(height: 10),

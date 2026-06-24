@@ -63,3 +63,5 @@ firebase.json
 
 # macOS
 *.DS_Store
+
+docs/project_progress.md
