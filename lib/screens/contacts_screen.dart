@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../services/contact_service.dart';
+import '../services/communication_service.dart';
 
 class ContactsScreen extends StatefulWidget {
   const ContactsScreen({super.key});
@@ -28,11 +29,22 @@ class _ContactsScreenState extends State<ContactsScreen> {
       return;
     }
 
-    await ContactService().addContact(
+    if (!RegExp(r'^[0-9]{10,15}$').hasMatch(phone)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid phone number')),
+      );
+      return;
+    }
+
+    await _contactService.addContact(
       name: name,
       phone: phone,
       relation: relation,
     );
+
+    _nameController.clear();
+    _phoneController.clear();
+    _relationController.clear();
 
     if (!mounted) return;
 
@@ -78,6 +90,8 @@ class _ContactsScreenState extends State<ContactsScreen> {
               const SizedBox(height: 16),
               TextField(
                 controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                maxLength: 15,
                 decoration: InputDecoration(
                   hintText: 'Phone',
                   border: OutlineInputBorder(
@@ -272,7 +286,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
                   ) ?? false;
                 },
                 onDismissed: (direction) async {
-                  await ContactService().deleteContact(docs[index].id);
+                  await _contactService.deleteContact(docs[index].id);
                 },
                 child: _buildContactCard(theme, contact, index),
               );
@@ -342,7 +356,19 @@ class _ContactsScreenState extends State<ContactsScreen> {
           children: [
             IconButton(
               icon: const Icon(Icons.call_rounded, color: Color(0xFF0EA5E9)),
-              onPressed: () {},
+              onPressed: () async {
+  try {
+    await CommunicationService.callContact(contact['phone']!);
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Unable to make a phone call.\n$e'),
+      ),
+    );
+  }
+},
               tooltip: 'Call',
               iconSize: 20,
               constraints: const BoxConstraints(
@@ -352,7 +378,22 @@ class _ContactsScreenState extends State<ContactsScreen> {
             ),
             IconButton(
               icon: const Icon(Icons.message_rounded, color: Color(0xFF2563EB)),
-              onPressed: () {},
+              onPressed: () async {
+  try {
+    await CommunicationService.sendSms(
+      contact['phone']!,
+      message: 'Hi, this is an emergency message from SafeStreet.',
+    );
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Unable to open SMS app.\n$e'),
+      ),
+    );
+  }
+},
               tooltip: 'Message',
               iconSize: 20,
               constraints: const BoxConstraints(
