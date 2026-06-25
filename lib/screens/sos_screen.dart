@@ -69,10 +69,18 @@ class _SosScreenState extends State<SosScreen> {
         _location = result.location;
       });
 
+      String snackMessage = 'SOS alert created successfully.';
+      if (result.contactsNotified > 0 && result.smsFailedCount > 0) {
+        snackMessage =
+            'SOS alert created successfully. ${result.contactsNotified} contact(s) notified; ${result.smsFailedCount} could not be notified.';
+      } else if (result.contactsNotified == 0) {
+        snackMessage = 'SOS alert created successfully. No trusted contacts were available.';
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('SOS alert created successfully.'),
-          backgroundColor: Color(0xFF16A34A),
+        SnackBar(
+          content: Text(snackMessage),
+          backgroundColor: const Color(0xFF16A34A),
         ),
       );
 

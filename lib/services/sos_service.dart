@@ -4,6 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
 
+import 'communication_service.dart';
+import 'contact_service.dart';
+
 enum SosFailureType {
   unauthenticated,
   permissionDenied,
@@ -35,23 +38,30 @@ class SosAlertResult {
     required this.latitude,
     required this.longitude,
     required this.location,
+    this.contactsNotified = 0,
+    this.smsFailedCount = 0,
   });
 
   final String alertId;
   final double latitude;
   final double longitude;
   final String location;
+  final int contactsNotified;
+  final int smsFailedCount;
 }
 
 class SosService {
   SosService({
     FirebaseAuth? auth,
     FirebaseFirestore? firestore,
+    ContactService? contactService,
   })  : _auth = auth ?? FirebaseAuth.instance,
-        _firestore = firestore ?? FirebaseFirestore.instance;
+        _firestore = firestore ?? FirebaseFirestore.instance,
+        _contactService = contactService ?? ContactService();
 
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
+  final ContactService _contactService;
 
   Future<SosAlertResult> createActiveAlert() async {
     final user = _auth.currentUser;
@@ -68,19 +78,26 @@ class SosService {
 
     final position = await _getCurrentPosition();
     final location = _formatLocation(position);
+    final mapsLink = _buildMapsLink(position);
     final alertRef = _firestore.collection('alerts').doc();
+    final deviceTime = DateTime.now().toUtc().toIso8601String();
 
     try {
       await alertRef.set({
         'alertId': alertRef.id,
         'userId': user.uid,
-        'userEmail': user.email ?? '',
+        'displayName': user.displayName ?? '',
+        'email': user.email ?? '',
         'latitude': position.latitude,
         'longitude': position.longitude,
-        'location': location,
-        'status': 'ACTIVE',
-        'resolved': false,
+        'mapsLink': mapsLink,
+        'status': 'active',
         'createdAt': FieldValue.serverTimestamp(),
+        'deviceTime': deviceTime,
+        'source': 'mobile',
+        'userEmail': user.email ?? '',
+        'location': location,
+        'resolved': false,
       });
     } on FirebaseException catch (error) {
       throw SosException(
@@ -96,11 +113,18 @@ class SosService {
       );
     }
 
+    final notificationResult = await _notifyTrustedContacts(
+      location: location,
+      mapsLink: mapsLink,
+    );
+
     return SosAlertResult(
       alertId: alertRef.id,
       latitude: position.latitude,
       longitude: position.longitude,
       location: location,
+      contactsNotified: notificationResult.contactsNotified,
+      smsFailedCount: notificationResult.smsFailedCount,
     );
   }
 
@@ -172,9 +196,73 @@ class SosService {
     }
   }
 
+  Future<_NotificationResult> _notifyTrustedContacts({
+    required String location,
+    required String mapsLink,
+  }) async {
+    try {
+      final contacts = await _contactService.getContactList();
+      if (contacts.isEmpty) {
+        return const _NotificationResult(contactsNotified: 0, smsFailedCount: 0);
+      }
+
+      final message = '''
+🚨 EMERGENCY ALERT
+
+I may be in danger.
+
+This message was sent using SafeStreet.
+
+Current Location:
+$location
+
+Please contact me immediately.
+Maps: $mapsLink
+''';
+
+      var sentCount = 0;
+      var failedCount = 0;
+
+      for (final contact in contacts) {
+        final phone = (contact['phone'] ?? '').toString().trim();
+        if (phone.isEmpty) {
+          continue;
+        }
+
+        try {
+          await CommunicationService.sendSms(phone, message: message);
+          sentCount += 1;
+        } catch (_) {
+          failedCount += 1;
+        }
+      }
+
+      return _NotificationResult(
+        contactsNotified: sentCount,
+        smsFailedCount: failedCount,
+      );
+    } catch (_) {
+      return const _NotificationResult(contactsNotified: 0, smsFailedCount: 0);
+    }
+  }
+
   String _formatLocation(Position position) {
     final latitude = position.latitude.toStringAsFixed(6);
     final longitude = position.longitude.toStringAsFixed(6);
     return '$latitude, $longitude';
   }
+
+  String _buildMapsLink(Position position) {
+    return 'https://www.google.com/maps/search/?api=1&query=${position.latitude},${position.longitude}';
+  }
+}
+
+class _NotificationResult {
+  const _NotificationResult({
+    required this.contactsNotified,
+    required this.smsFailedCount,
+  });
+
+  final int contactsNotified;
+  final int smsFailedCount;
 }

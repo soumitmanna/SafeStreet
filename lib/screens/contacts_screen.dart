@@ -17,62 +17,170 @@ class _ContactsScreenState extends State<ContactsScreen> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _relationController = TextEditingController();
 
-  Future<void> _saveContact() async {
+  void _clearControllers() {
+    _nameController.clear();
+    _phoneController.clear();
+    _relationController.clear();
+  }
+
+  void _setControllerValues({String? name, String? phone, String? relation}) {
+    _nameController.text = name ?? '';
+    _phoneController.text = phone ?? '';
+    _relationController.text = relation ?? '';
+  }
+
+  Future<bool> _saveContact() async {
     final name = _nameController.text.trim();
     final phone = _phoneController.text.trim();
     final relation = _relationController.text.trim();
 
     if (name.isEmpty || phone.isEmpty || relation.isEmpty) {
+      if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill all fields')),
       );
-      return;
+      return false;
     }
 
     if (!RegExp(r'^[0-9]{10,15}$').hasMatch(phone)) {
+      if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a valid phone number')),
       );
-      return;
+      return false;
     }
 
-    await _contactService.addContact(
-      name: name,
-      phone: phone,
-      relation: relation,
-    );
+    final phoneExists = await _contactService.phoneExists(phone: phone);
+    if (phoneExists) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Phone number already exists.')),
+      );
+      return false;
+    }
 
-    _nameController.clear();
-    _phoneController.clear();
-    _relationController.clear();
+    try {
+      await _contactService.addContact(
+        name: name,
+        phone: phone,
+        relation: relation,
+      );
 
-    if (!mounted) return;
+      _clearControllers();
 
-    Navigator.of(context).pop();
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Contact added successfully')),
+      );
+      return true;
+    } catch (e) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to add contact.\n$e')),
+      );
+      return false;
+    }
   }
 
-  void _showAddContactSheet() {
+  Future<bool> _updateContact(String? docId) async {
+    if (docId == null || docId.isEmpty) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to update contact')),
+      );
+      return false;
+    }
+
+    final name = _nameController.text.trim();
+    final phone = _phoneController.text.trim();
+    final relation = _relationController.text.trim();
+
+    if (name.isEmpty || phone.isEmpty || relation.isEmpty) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill all fields')),
+      );
+      return false;
+    }
+
+    if (!RegExp(r'^[0-9]{10,15}$').hasMatch(phone)) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid phone number')),
+      );
+      return false;
+    }
+
+    final phoneExists = await _contactService.phoneExists(
+      phone: phone,
+      excludeDocId: docId,
+    );
+    if (phoneExists) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Phone number already exists.')),
+      );
+      return false;
+    }
+
+    try {
+      await _contactService.updateContact(
+        docId: docId,
+        name: name,
+        phone: phone,
+        relation: relation,
+      );
+
+      _clearControllers();
+
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Contact updated successfully')),
+      );
+      return true;
+    } catch (e) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update contact.\n$e')),
+      );
+      return false;
+    }
+  }
+
+  void _showContactSheet({
+    required bool isEditing,
+    String? docId,
+    String? name,
+    String? phone,
+    String? relation,
+  }) {
+    if (isEditing) {
+      _setControllerValues(name: name, phone: phone, relation: relation);
+    } else {
+      _clearControllers();
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (context) {
+      builder: (sheetContext) {
         return Padding(
           padding: EdgeInsets.only(
             left: 20,
             right: 20,
             top: 24,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+            bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 24,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Add Emergency Contact',
-                style: TextStyle(
+              Text(
+                isEditing ? 'Edit Emergency Contact' : 'Add Emergency Contact',
+                style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
@@ -113,7 +221,15 @@ class _ContactsScreenState extends State<ContactsScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _saveContact,
+                  onPressed: () async {
+                    final success = isEditing
+                        ? await _updateContact(docId)
+                        : await _saveContact();
+
+                    if (success && mounted) {
+                      Navigator.of(sheetContext).pop();
+                    }
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
                     shape: RoundedRectangleBorder(
@@ -121,7 +237,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
                     ),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  child: const Text('Save'),
+                  child: Text(isEditing ? 'Update' : 'Save'),
                 ),
               ),
             ],
@@ -129,6 +245,10 @@ class _ContactsScreenState extends State<ContactsScreen> {
         );
       },
     );
+  }
+
+  void _showAddContactSheet() {
+    _showContactSheet(isEditing: false);
   }
 
   @override
@@ -288,7 +408,12 @@ class _ContactsScreenState extends State<ContactsScreen> {
                 onDismissed: (direction) async {
                   await _contactService.deleteContact(docs[index].id);
                 },
-                child: _buildContactCard(theme, contact, index),
+                child: _buildContactCard(
+  theme,
+  contact,
+  docs[index].id,
+  index,
+),
               );
             },
           ),
@@ -305,7 +430,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
     return name.isNotEmpty ? name[0].toUpperCase() : '?';
   }
 
-  Widget _buildContactCard(ThemeData theme, Map<String, String> contact, int index) {
+  Widget _buildContactCard(ThemeData theme, Map<String, String> contact, String docId, int index) {
     final colors = [
       const Color(0xFFDBEAFE),
       const Color(0xFFECE4F8),
@@ -323,38 +448,49 @@ class _ContactsScreenState extends State<ContactsScreen> {
 
     final colorIndex = index % colors.length;
 
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      leading: CircleAvatar(
-        radius: 26,
-        backgroundColor: colors[colorIndex],
-        child: Text(
-          contact['initials']!,
-          style: TextStyle(
-            color: textColors[colorIndex],
-            fontWeight: FontWeight.w700,
-            fontSize: 14,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        _showContactSheet(
+          isEditing: true,
+          name: contact['name']!,
+          phone: contact['phone']!,
+          relation: contact['relation']!,
+          docId: docId,
+        );
+      },
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: CircleAvatar(
+          radius: 26,
+          backgroundColor: colors[colorIndex],
+          child: Text(
+            contact['initials']!,
+            style: TextStyle(
+              color: textColors[colorIndex],
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+            ),
           ),
         ),
-      ),
-      title: Text(
-        contact['name']!,
-        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      subtitle: Text(
-        '${contact['relation']} • ${contact['phone']}',
-        style: const TextStyle(color: Colors.black54, fontSize: 13),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      trailing: SizedBox(
-        width: 100,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            IconButton(
+        title: Text(
+          contact['name']!,
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          '${contact['relation']} • ${contact['phone']}',
+          style: const TextStyle(color: Colors.black54, fontSize: 13),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: SizedBox(
+          width: 100,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              IconButton(
               icon: const Icon(Icons.call_rounded, color: Color(0xFF0EA5E9)),
               onPressed: () async {
   try {
@@ -376,9 +512,9 @@ class _ContactsScreenState extends State<ContactsScreen> {
                 minHeight: 40,
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.message_rounded, color: Color(0xFF2563EB)),
-              onPressed: () async {
+              IconButton(
+                icon: const Icon(Icons.message_rounded, color: Color(0xFF2563EB)),
+                onPressed: () async {
   try {
     await CommunicationService.sendSms(
       contact['phone']!,
@@ -394,14 +530,15 @@ class _ContactsScreenState extends State<ContactsScreen> {
     );
   }
 },
-              tooltip: 'Message',
-              iconSize: 20,
-              constraints: const BoxConstraints(
-                minWidth: 40,
-                minHeight: 40,
+                tooltip: 'Message',
+                iconSize: 20,
+                constraints: const BoxConstraints(
+                  minWidth: 40,
+                  minHeight: 40,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
