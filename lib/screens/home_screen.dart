@@ -7,6 +7,7 @@ import 'location_screen.dart';
 import 'contacts_screen.dart';
 import 'assist_feed_screen.dart';
 import 'journey_timer_screen.dart';
+import 'evidence_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -194,7 +195,7 @@ class HomeScreen extends StatelessWidget {
                         context,
                         MaterialPageRoute(
                           builder: (_) =>
-                              const CameraScreen(),
+                              const EvidenceScreen(),
                         ),
                       );
                     },

@@ -1,16 +1,39 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- ========================= -->
     <!-- Location Permissions -->
+    <!-- ========================= -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- ========================= -->
+    <!-- Camera Permissions -->
+    <!-- ========================= -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- Android 13+ -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+
+    <!-- Android 12 and below -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
 
     <application
         android:label="mobile_app"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
-    <meta-data
-    android:name="com.google.android.geo.API_KEY"
-    android:value="AIzaSyAqw5O5_9H70-_DqOKkb54I-c_N1cv9EQU"/>
+
+        <!-- Google Maps API Key -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyAqw5O5_9H70-_DqOKkb54I-c_N1cv9EQU" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -33,7 +56,7 @@
 
         </activity>
 
-        <!-- Required by Flutter -->
+        <!-- Flutter Embedding -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
@@ -49,3 +72,4 @@
     </queries>
 
 </manifest>
+
